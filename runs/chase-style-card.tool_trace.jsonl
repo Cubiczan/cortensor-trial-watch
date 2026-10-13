@@ -1,0 +1,4 @@
+{"tool": "analyze_transactions", "csv_path": "/workspace/contests/cortensor/trial-watch-agent/samples/chase-style-card.csv", "recurring": 6, "actionable": ["Adobe Creative Cld", "Peloton Membership Ny", "Dropbox Plus"]}
+{"tool": "queue_cancellation", "merchant": "Adobe Creative Cld", "deadline": "2026-09-27"}
+{"tool": "queue_cancellation", "merchant": "Peloton Membership Ny", "deadline": "2026-07-17"}
+{"tool": "queue_cancellation", "merchant": "Dropbox Plus", "deadline": "2026-10-10"}

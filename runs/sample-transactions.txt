@@ -1,0 +1,36 @@
+$ python agent.py samples/sample-transactions.csv
+trialwatch: I've successfully queued the following cancellations for human approval:
+
+1. **Merchant:** Customer Io
+- **Monthly Cost:** $100.00
+- **Why:** Price increase from $1.00 to $100.00; appears to be a trial that converted to paid.
+- **Cancel-by Date:** 2026-10-03
+
+2. **Merchant:** Gym Flex Membership
+- **Monthly Cost:** $39.00
+- **Why:** Stale: no recent charge, may still be billing/forgotten.
+- **Cancel-by Date:** 2026-08-19
+
+3. **Merchant:** Netflix
+- **Monthly Cost:** $17.99
+- **Why:** Price increase from $15.49 to $17.99.
+- **Cancel-by Date:** 2026-09-30
+
+### Summary of Monthly Costs
+- **Customer Io:** $100.00
+- **Gym Flex Membership:** $39.00
+- **Netflix:** $17.99
+
+#### Total Monthly Savings from Cancellations
+- **Total Monthly Savings:** $100.00 + $39.00 + $17.99 = **$156.99**
+- **Total Annual Savings:** $156.99 * 12 = **$1,883.88**
+
+Let me know if there's anything else I can assist you with!
+
+session=trial-watch-76834d20 run_state=completed stats={"input_tokens": 5144, "output_tokens": 322, "cache_read_tokens": 0, "llm_calls": 2, "tool_calls": 4, "tool_errors": 0, "duration_ms": 18188}
+
+Verified approval queue (written by the tool, not the model) -> /workspace/contests/cortensor/trial-watch-agent/.trialwatch/approvals.jsonl:
+  [pending_human] Customer Io              $  100.0/mo  cancel by 2026-10-03  - price up 1.00 -> 100.00, looks like a trial that converted to paid
+  [pending_human] Gym Flex Membership      $   39.0/mo  cancel by 2026-08-19  - stale: no recent charge, may still be billing/forgotten
+  [pending_human] Netflix                  $  17.99/mo  cancel by 2026-09-30  - price up 15.49 -> 17.99
+  potential savings if approved: $156.99/mo, $1883.88/yr. Nothing was cancelled.

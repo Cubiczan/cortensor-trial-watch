@@ -1,0 +1,4 @@
+{"tool": "analyze_transactions", "csv_path": "/workspace/contests/cortensor/trial-watch-agent/samples/sample-transactions.csv", "recurring": 5, "actionable": ["Customer Io", "Gym Flex Membership", "Netflix"]}
+{"tool": "queue_cancellation", "merchant": "Customer Io", "deadline": "2026-10-03"}
+{"tool": "queue_cancellation", "merchant": "Gym Flex Membership", "deadline": "2026-08-19"}
+{"tool": "queue_cancellation", "merchant": "Netflix", "deadline": "2026-09-30"}

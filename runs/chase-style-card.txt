@@ -1,0 +1,31 @@
+$ python agent.py samples/chase-style-card.csv
+trialwatch: I've successfully queued the cancellations for your subscriptions. Here are the details:
+
+1. **Adobe Creative Cld**
+- **Monthly Cost:** $59.99
+- **Reason:** Price increase to $59.99 and looks like a trial that converted to paid.
+- **Cancel By Date:** 2026-09-27
+
+2. **Peloton Membership Ny**
+- **Monthly Cost:** $44.00
+- **Reason:** Stale; no recent charge, may still be billing/forgotten.
+- **Cancel By Date:** 2026-07-17
+
+3. **Dropbox Plus**
+- **Monthly Cost:** $14.99
+- **Reason:** Price increase from $11.99 to $14.99.
+- **Cancel By Date:** 2026-10-10
+
+### Summary of Savings:
+- **Total Monthly Cost:** $125.18
+- **Total Annual Savings if all are canceled:** $1,502.16
+
+This means if all these subscriptions are approved for cancellation, you'll save quite a bit over time! If you need to take further actions or have other subscriptions to review, just let me know.
+
+session=trial-watch-c0c497fb run_state=completed stats={"input_tokens": 5300, "output_tokens": 283, "cache_read_tokens": 0, "llm_calls": 2, "tool_calls": 4, "tool_errors": 0, "duration_ms": 18584}
+
+Verified approval queue (written by the tool, not the model) -> /workspace/contests/cortensor/trial-watch-agent/.trialwatch/approvals.jsonl:
+  [pending_human] Adobe Creative Cld       $  59.99/mo  cancel by 2026-09-27  - Price increase and looks like a trial that converted to paid.
+  [pending_human] Peloton Membership Ny    $   44.0/mo  cancel by 2026-07-17  - Stale: no recent charge, may still be billing/forgotten.
+  [pending_human] Dropbox Plus             $  14.99/mo  cancel by 2026-10-10  - Price increase from 11.99 to 14.99.
+  potential savings if approved: $118.98/mo, $1427.76/yr. Nothing was cancelled.

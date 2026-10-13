@@ -1,0 +1,40 @@
+$ python agent.py samples/smb-checking-debit-credit.csv
+trialwatch: I've successfully queued the following cancellations for human approval:
+
+1. **Customer Io**
+- **Monthly Cost:** $100.00
+- **Why:** Price increased from $1.00 to $100.00; looks like a trial that converted to paid.
+- **Cancel-by Date:** 2026-10-08
+
+2. **Notion Labs Team**
+- **Monthly Cost:** $48.00
+- **Why:** Price increased from $1.00 to $48.00; looks like a trial that converted to paid.
+- **Cancel-by Date:** 2026-09-27
+
+3. **Zoom Us**
+- **Monthly Cost:** $15.99
+- **Why:** Stale; no recent charge, may still be billing or forgotten.
+- **Cancel-by Date:** 2026-06-10
+
+4. **Slack Technologies**
+- **Monthly Cost:** $12.50
+- **Why:** Price increased from $8.75 to $12.50.
+- **Cancel-by Date:** 2026-09-30
+
+### Summary of Potential Savings
+- **Total Monthly Cost:** $176.49
+- $100.00 (Customer Io) + $48.00 (Notion Labs Team) + $15.99 (Zoom Us) + $12.50 (Slack Technologies)
+
+- **Total Annual Savings (if all cancelled):** $2,077.88
+- $176.49 * 12 months
+
+If you have any more requests or need further assistance, just let me know!
+
+session=trial-watch-0b62a53d run_state=completed stats={"input_tokens": 5544, "output_tokens": 374, "cache_read_tokens": 0, "llm_calls": 2, "tool_calls": 5, "tool_errors": 0, "duration_ms": 19627}
+
+Verified approval queue (written by the tool, not the model) -> /workspace/contests/cortensor/trial-watch-agent/.trialwatch/approvals.jsonl:
+  [pending_human] Customer Io              $  100.0/mo  cancel by 2026-10-08  - price up 1.00 -> 100.00; looks like a trial that converted to paid
+  [pending_human] Notion Labs Team         $   48.0/mo  cancel by 2026-09-27  - price up 1.00 -> 48.00; looks like a trial that converted to paid
+  [pending_human] Zoom Us                  $  15.99/mo  cancel by 2026-06-10  - stale: no recent charge, may still be billing/forgotten
+  [pending_human] Slack Technologies       $   12.5/mo  cancel by 2026-09-30  - price up 8.75 -> 12.50
+  potential savings if approved: $176.49/mo, $2117.88/yr. Nothing was cancelled.

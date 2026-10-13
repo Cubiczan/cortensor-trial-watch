@@ -1,0 +1,5 @@
+{"tool": "analyze_transactions", "csv_path": "/workspace/contests/cortensor/trial-watch-agent/samples/smb-checking-debit-credit.csv", "recurring": 7, "actionable": ["Customer Io", "Notion Labs Team", "Zoom Us", "Slack Technologies"]}
+{"tool": "queue_cancellation", "merchant": "Customer Io", "deadline": "2026-10-08"}
+{"tool": "queue_cancellation", "merchant": "Notion Labs Team", "deadline": "2026-09-27"}
+{"tool": "queue_cancellation", "merchant": "Zoom Us", "deadline": "2026-06-10"}
+{"tool": "queue_cancellation", "merchant": "Slack Technologies", "deadline": "2026-09-30"}

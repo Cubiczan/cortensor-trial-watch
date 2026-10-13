@@ -1,0 +1,7 @@
+.venv/
+.trialwatch/
+.openminion/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
