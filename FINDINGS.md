@@ -56,6 +56,19 @@ Each run: 2 LLM calls, ~5.1–5.5K input tokens, ~18–20 s. Nothing was cancell
   the approval ledger is written by the tool, and `agent.py` prints that ledger as the source of truth.
 - The anti-hallucination guard in `queue_cancellation` (reject merchants not flagged) is cheap and worth it.
 
+## Prepared fix for bug 1 (not submitted upstream)
+
+Reproduced on the installed 0.1.4 tree (2026-10-17), without a model call:
+
+- A plain `@tool(name="lookup_order")` is absent from `collect_execution_tool_schemas` (`requires_explicit_exposure_profile` hides it) and `register_module_manifest(derive_manifest(...))` raises `non-canonical model_tool_id='lookup_order'`.
+- `plugin.trialwatch.analyze_transactions` is present in execution schemas via `prompt_visible_runtime_name`, but `get_model_exposure_specs` still returns nothing for it after the manifest is registered, because `_canonical_specs` drops every id outside `ALL_MODEL_TOOL_IDS_SET`, including `plugin.*` / `mcp.*`.
+
+That is why `Agent(tools=[decorated_fn])` sends the entry call with no user tool unless the caller both prefixes `plugin.` and registers a manifest (the workaround still in `agent.py`). The fix belongs in OpenMinion, not in this dependency pin. Patch, notes, and the exposure test are in [upstream/](upstream/). No upstream pull request was opened.
+
+## Delegation building block (RenewalGuard)
+
+`plugin.renewalguard.delegate_pricing_check` calls `openminion.api.handoff.subagent` with `name="pricing-check"` and the fixture price tool. The child does not share the parent's transcript. Percent difference is computed in `pricing.py` before the child runs; the model note is commentary. Offline tests inject the factory. A live audit delegates only when the parent `Agent` is on the stack. No new SDK bug was filed from the delegation path: the child still depends on the bug 1 workaround (`register_tool_manifests`) on stock 0.1.4.
+
 ## Feedback / suggestions for Cortensor & OpenMinion
 - Fix bug 1 (highest impact: the documented Python quickstart doesn't call tools) and add a test that
   `Agent(tools=[decorated_fn])` exposes the tool in the provider payload.
