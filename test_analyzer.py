@@ -20,11 +20,15 @@ def test_detects_trial_and_stale():
 
 
 def test_chase_style_card_export():
-    _, by = _by("chase-style-card.csv")
+    a, by = _by("chase-style-card.csv")
     assert any("trial" in f for f in by["Adobe Creative Cld"]["flags"])
     assert any("price up" in f for f in by["Dropbox Plus"]["flags"])
+    assert by["Dropbox Plus"]["price_change_pct"] == 25.02
     assert by["Peloton Membership Ny"]["stale"]
     assert by["Nyt Digital Weekly"]["cadence"] == "weekly"
+    assert by["Amazon Prime Annual"]["cadence"] == "yearly"
+    calendar = {row["merchant"]: row for row in a["renewal_calendar"]}
+    assert calendar["Amazon Prime Annual"]["lead_time_days"] == 30
     assert not any(k.startswith(("Shell", "Uber")) for k in by)  # variable spend is not a subscription
 
 

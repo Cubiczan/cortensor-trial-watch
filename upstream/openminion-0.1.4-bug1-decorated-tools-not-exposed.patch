@@ -1,0 +1,239 @@
+--- a/openminion/tools/decorator.py
++++ b/openminion/tools/decorator.py
+@@ -1,10 +1,27 @@
+ import inspect
++import re
+ from typing import Any, Optional, overload
+ from collections.abc import Callable, Mapping
+ 
+ from pydantic import BaseModel, ConfigDict, create_model
+ 
+ 
++def _model_visible_tool_name(name: str) -> str:
++    """Return a model tool id validation will accept.
++
++    Built-in ids and ``mcp.`` / ``plugin.`` names pass through. A plain function
++    name such as ``lookup_order`` is not a canonical model tool id, so manifests
++    reject it and the exposure service hides it. Namespace those automatically.
++    """
++    from openminion.modules.tool.contracts.model_ids import is_valid_model_tool_id
++
++    token = str(name or "").strip()
++    if token and is_valid_model_tool_id(token):
++        return token
++    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", token).strip("._") or "tool"
++    return f"plugin.user.{safe}"
++
++
+ def _build_args_model(func: Callable[..., Any], model_name: str) -> type[BaseModel]:
+     signature = inspect.signature(func)
+     fields: dict[str, tuple[Any, Any]] = {}
+@@ -88,7 +105,7 @@
+ ) -> Callable[..., Any]:
+     from openminion.modules.tool.framework import ToolDecl, ToolFamilySpec
+ 
+-    resolved_name = (name or func.__name__).strip()
++    resolved_name = _model_visible_tool_name(name or func.__name__)
+     resolved_description = (
+         description or (func.__doc__ or "").strip() or _infer_description(func)
+     ).strip()
+--- a/openminion/api/agent.py
++++ b/openminion/api/agent.py
+@@ -127,6 +127,9 @@
+                     self.tools.append(tname)
+         else:
+             self.handoff_tool_names = []
++        self._ephemeral_manifests: list[Any] = []
++        self._ephemeral_schema_snapshot: dict[str, Any] | None = None
++        self.forced_tools = _rewrite_forced_tools(self.forced_tools, self.tools)
+ 
+     def _ensure_runtime(self) -> APIRuntime:
+         if self._runtime is None:
+@@ -180,35 +183,76 @@
+     def _register_tools_for_run(self, registry: ToolRegistry) -> list[str]:
+         from openminion.api.handoff import build_delegate_family_spec
+         from openminion.modules.tool.errors import ToolRuntimeError
+-        from openminion.modules.tool.framework import derive_tool_specs
++        from openminion.modules.tool.framework import derive_manifest, derive_tool_specs
+ 
+         families = [builder() for builder in self._tool_family_builders]
+         handoff_family = build_delegate_family_spec(self.handoffs)
+         if handoff_family is not None:
+             families.append(handoff_family)
+ 
++        manager = registry._binding_manager()
++        if self._ephemeral_schema_snapshot is None:
++            self._ephemeral_schema_snapshot = dict(
++                getattr(manager, "_runtime_schema_by_tool_name", {})
++            )
++        schemas = dict(self._ephemeral_schema_snapshot)
+         registered: list[str] = []
+         try:
+             for family in families:
+-                for spec in derive_tool_specs(family):
++                specs = derive_tool_specs(family)
++                for spec in specs:
+                     spec.prompt_visible_runtime_name = True
+                     registry.add(spec)
+                     registered.append(spec.name)
++                    args_model = getattr(spec, "args_model", None)
++                    if hasattr(args_model, "model_json_schema"):
++                        schemas[spec.name] = args_model.model_json_schema()
++                manifest = derive_manifest(family)
++                existing_ids = {
++                    str(model_tool.model_tool_id)
++                    for item in manager._manifests
++                    for model_tool in item.model_tools
++                }
++                new_ids = [str(model_tool.model_tool_id) for model_tool in manifest.model_tools]
++                if any(model_tool_id in existing_ids for model_tool_id in new_ids):
++                    continue
++                source_module = str(manifest.module_id or "").strip() or "openminion.api.agent"
++                try:
++                    manager.register_module_manifest(manifest, source_module=source_module)
++                except ToolRuntimeError as exc:
++                    # Handoff transfer tools may still use a non-canonical id.
++                    # Decorated @tool names are namespaced before they get here.
++                    if "non-canonical" not in str(exc).lower():
++                        raise
++                    continue
++                self._ephemeral_manifests.append(manifest)
++            if hasattr(manager, "set_runtime_tool_schemas"):
++                manager.set_runtime_tool_schemas(schemas)
+         except (ToolRuntimeError, TypeError, ValueError, AttributeError):
+-            for name in reversed(registered):
+-                registry.unregister(name)
++            self._unregister_tools(registry, registered)
+             raise
+         return registered
+ 
+-    @staticmethod
+     def _unregister_tools(
++        self,
+         registry: ToolRegistry | None,
+         tool_names: list[str],
+     ) -> None:
+-        if registry is None:
+-            return
+-        for name in reversed(tool_names):
+-            registry.unregister(name)
++        if registry is not None:
++            for name in reversed(tool_names):
++                registry.unregister(name)
++            binding = getattr(registry, "_binding_manager", None)
++            manager = binding() if callable(binding) else None
++        else:
++            manager = None
++        if manager is not None and hasattr(manager, "unregister_manifest"):
++            for manifest in list(self._ephemeral_manifests):
++                manager.unregister_manifest(manifest)
++            if self._ephemeral_schema_snapshot is not None and hasattr(
++                manager, "set_runtime_tool_schemas"
++            ):
++                manager.set_runtime_tool_schemas(self._ephemeral_schema_snapshot)
++        self._ephemeral_manifests = []
+ 
+     def _coerce_output(self, text: str) -> OutputT:
+         if self.output_type is None or self.output_type is str:
+@@ -390,6 +434,19 @@
+         self.close()
+ 
+ 
++def _rewrite_forced_tools(forced: list[str], exposed: list[str]) -> list[str]:
++    """Map a plain forced name onto the auto-namespaced tool id when needed."""
++    known = set(exposed)
++    rewritten: list[str] = []
++    for raw in forced:
++        if raw in known:
++            rewritten.append(raw)
++            continue
++        prefixed = f"plugin.user.{raw}"
++        rewritten.append(prefixed if prefixed in known else raw)
++    return rewritten
++
++
+ def _extract_json_object(text: str) -> str | None:
+     """Return the first decodable JSON object span from ``text``."""
+ 
+--- a/openminion/modules/tool/exposure/__init__.py
++++ b/openminion/modules/tool/exposure/__init__.py
+@@ -5,6 +5,7 @@
+ from openminion.modules.tool.contracts import (
+     ALL_MODEL_TOOL_IDS_SET,
+     ProviderToolSpec,
++    is_dynamic_model_tool_id,
+     normalize_raw_model_tool_name,
+ )
+ 
+@@ -45,7 +46,7 @@
+         name = str(getattr(spec, "name", "") or "").strip()
+         if not name or name in canonical:
+             continue
+-        if name not in ALL_MODEL_TOOL_IDS_SET:
++        if name not in ALL_MODEL_TOOL_IDS_SET and not is_dynamic_model_tool_id(name):
+             _LOG.debug("dropping non-canonical model exposure tool: %s", name)
+             continue
+         canonical[name] = spec
+--- a/openminion/modules/tool/runtime/manager.py
++++ b/openminion/modules/tool/runtime/manager.py
+@@ -128,6 +128,11 @@
+         self._manifests.append(manifest)
+         self._compiled = None
+ 
++    def unregister_manifest(self, manifest: ToolBindingManifest) -> None:
++        """Drop one manifest previously registered for a single agent run."""
++        self._manifests = [item for item in self._manifests if item is not manifest]
++        self._compiled = None
++
+     def set_runtime_tool_schemas(
+         self,
+         schema_by_runtime_tool_name: Mapping[str, Mapping[str, Any]] | None,
+--- /dev/null
++++ b/tests/api/test_decorated_tool_exposure.py
+@@ -0,0 +1,46 @@
++"""Decorated Agent tools must be part of the model-facing tool surface.
++
++Bug: Agent(tools=[@tool fn]) registered the callable on ToolRegistry only.
++model_provider_specs / get_model_exposure_specs never listed it, so the
++provider payload was sent with zero user tools. Plain names also failed
++manifest validation (non-canonical model_tool_id).
++"""
++from openminion import tool
++from openminion.api.agent import Agent
++from openminion.modules.tool.exposure import get_model_exposure_specs
++from openminion.modules.tool.registry import ToolRegistry
++
++
++def test_plain_decorated_tool_is_exposed_for_the_run_only():
++    @tool(description="Look up an order by id")
++    def lookup_order(order_id: str) -> dict:
++        return {"order_id": order_id}
++
++    assert lookup_order.tool_decl.name == "plugin.user.lookup_order"
++
++    agent = Agent(
++        tools=[lookup_order],
++        forced_tools=["lookup_order"],
++        instructions="Look up the order with the tool.",
++    )
++    assert agent.forced_tools == ["plugin.user.lookup_order"]
++
++    registry = ToolRegistry()
++    registered = agent._register_tools_for_run(registry)
++    assert registered == ["plugin.user.lookup_order"]
++    specs = get_model_exposure_specs(registry)
++    matched = [spec for spec in specs if spec.name == "plugin.user.lookup_order"]
++    assert matched, [spec.name for spec in specs]
++    properties = (matched[0].parameters or {}).get("properties") or {}
++    assert "order_id" in properties
++
++    agent._unregister_tools(registry, registered)
++    leftover = [spec.name for spec in get_model_exposure_specs(registry)]
++    assert "plugin.user.lookup_order" not in leftover
++
++    # A second run must not collide with a manifest left behind by the first.
++    registered_again = agent._register_tools_for_run(registry)
++    assert "plugin.user.lookup_order" in {
++        spec.name for spec in get_model_exposure_specs(registry)
++    }
++    agent._unregister_tools(registry, registered_again)

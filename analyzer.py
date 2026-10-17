@@ -5,6 +5,9 @@ from datetime import date, datetime, timedelta
 from statistics import median
 
 DATE_FMTS = ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%m/%d/%y", "%Y/%m/%d", "%b %d, %Y", "%d %b %Y")
+# Days before a renewal when the CFO should already be looking at it.
+LEAD_DAYS = {"weekly": 3, "monthly": 14, "quarterly": 21, "yearly": 30}
+ANNUAL_RE = re.compile(r"\b(ANNUAL|YEARLY|PER\s+YEAR)\b|/\s*YR\b", re.I)
 
 
 def parse_date(s):
@@ -73,6 +76,53 @@ def cadence(days):
     return None, None
 
 
+def price_change_pct(amts):
+    """Percent change from the first observed charge to the latest. None when unknown."""
+    if len(amts) < 2 or amts[0] <= 0:
+        return None
+    return round((amts[-1] - amts[0]) / amts[0] * 100, 2)
+
+
+def _fmt_pct(pct):
+    shown = round(pct)
+    if abs(pct - shown) < 0.15:
+        return f"{shown:.0f}"
+    return f"{pct:.1f}"
+
+
+def renewal_calendar(recurring, as_of):
+    """Lead-time view of the next charge. All dates and percents are computed here."""
+    entries = []
+    for item in recurring:
+        renews = date.fromisoformat(item["next_expected"])
+        days = (renews - as_of).days
+        lead = LEAD_DAYS[item["cadence"]]
+        pct = item.get("price_change_pct")
+        bits = []
+        if days < 0:
+            bits.append(f"renewal overdue by {-days} days")
+        elif days <= lead:
+            bits.append(f"renews in {days} days")
+        if pct is not None and pct >= 1 and 0 <= days <= lead:
+            bits.append(f"price up {_fmt_pct(pct)}%")
+        entries.append({
+            "merchant": item["merchant"],
+            "cadence": item["cadence"],
+            "renews_on": item["next_expected"],
+            "amount": item["last_amount"],
+            "monthly_cost": item["monthly_cost"],
+            "days_until": days,
+            "lead_time_days": lead,
+            "within_lead_time": 0 <= days <= lead,
+            "overdue": days < 0,
+            "cancel_by": (renews - timedelta(days=1)).isoformat(),
+            "alert": ", ".join(bits) if bits else None,
+            "price_change_pct": pct,
+        })
+    entries.sort(key=lambda e: (e["days_until"], e["merchant"]))
+    return entries
+
+
 def _consistent(amts):
     """Subscriptions bill a fixed amount, possibly stepping up (trial->paid, price hike)."""
     distinct = {round(a, 0) for a in amts}
@@ -90,6 +140,7 @@ def analyze(rows, cash_on_hand=None):
         if r["amount"] < 0:
             groups[merchant_key(r["desc"])].append(r)
     recurring = []
+    seen = set()
     for key, txs in groups.items():
         if len(txs) < 2:
             continue
@@ -103,16 +154,37 @@ def analyze(rows, cash_on_hand=None):
         last = txs[-1]
         monthly = amts[-1] * 30 / period  # forward-looking: what it will cost next cycle
         flags = []
+        pct = price_change_pct(amts)
         if len(amts) >= 2 and amts[-1] > amts[0] * 1.15:
             flags.append(f"price up {amts[0]:.2f} -> {amts[-1]:.2f}")
         if amts[0] < 2 and amts[-1] >= 5:
             flags.append("looks like a trial that converted to paid")
         nxt = last["date"] + timedelta(days=period)
+        seen.add(key)
         recurring.append({
             "merchant": key.title(), "cadence": name, "charges": len(txs),
             "last_amount": round(amts[-1], 2), "monthly_cost": round(monthly, 2),
             "annual_cost": round(monthly * 12, 2), "last_charge": last["date"].isoformat(),
             "next_expected": nxt.isoformat(), "flags": flags,
+            "price_change_pct": pct,
+            "stale": (end - last["date"]).days > period + 7,
+        })
+    # One annual invoice never repeats inside a short statement. Require the word
+    # annual/yearly so a single grocery or fuel charge is not treated as a subscription.
+    for key, txs in groups.items():
+        if key in seen or len(txs) != 1 or not ANNUAL_RE.search(txs[0]["desc"]):
+            continue
+        last = txs[0]
+        amt = -last["amount"]
+        period = 365
+        monthly = amt * 30 / period
+        nxt = last["date"] + timedelta(days=period)
+        recurring.append({
+            "merchant": key.title(), "cadence": "yearly", "charges": 1,
+            "last_amount": round(amt, 2), "monthly_cost": round(monthly, 2),
+            "annual_cost": round(monthly * 12, 2), "last_charge": last["date"].isoformat(),
+            "next_expected": nxt.isoformat(), "flags": [],
+            "price_change_pct": None,
             "stale": (end - last["date"]).days > period + 7,
         })
     recurring.sort(key=lambda x: -x["monthly_cost"])
@@ -129,6 +201,7 @@ def analyze(rows, cash_on_hand=None):
         "recurring": recurring,
         "subscription_monthly_total": round(sum(r["monthly_cost"] for r in recurring if not r["stale"]), 2),
         "upcoming_14d": [{"merchant": u["merchant"], "date": u["next_expected"], "amount": u["last_amount"]} for u in upcoming],
+        "renewal_calendar": renewal_calendar(recurring, end),
     }
     if cash_on_hand is not None and burn > 0:
         out["runway_months"] = round(cash_on_hand / burn, 1)

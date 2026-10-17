@@ -1,0 +1,20 @@
+{
+  "comment": "Local list prices for the pricing sub-agent. Fictional stand-in for a vendor page. Amounts are monthly unless noted.",
+  "prices": {
+    "customer io": {"list_price_monthly": 100.0, "plan": "Essentials", "source": "fixture"},
+    "netflix": {"list_price_monthly": 15.49, "plan": "Standard", "source": "fixture"},
+    "spotify usa": {"list_price_monthly": 11.99, "plan": "Individual", "source": "fixture"},
+    "gym flex membership": {"list_price_monthly": 39.0, "plan": "Flex", "source": "fixture"},
+    "adobe creative cld": {"list_price_monthly": 59.99, "plan": "Creative Cloud", "source": "fixture"},
+    "dropbox plus": {"list_price_monthly": 11.99, "plan": "Plus", "source": "fixture"},
+    "peloton membership ny": {"list_price_monthly": 44.0, "plan": "App membership", "source": "fixture"},
+    "notion labs team": {"list_price_monthly": 48.0, "plan": "Team", "source": "fixture"},
+    "slack technologies": {"list_price_monthly": 8.75, "plan": "Pro", "source": "fixture"},
+    "zoom us": {"list_price_monthly": 15.99, "plan": "Pro", "source": "fixture"},
+    "hiscox insurance qtr": {"list_price_monthly": 28.85, "plan": "Quarterly premium as monthly equivalent", "source": "fixture"},
+    "amazon prime annual": {"list_price_monthly": 11.42, "plan": "Annual Prime", "source": "fixture"},
+    "google workspace cubic": {"list_price_monthly": 14.0, "plan": "Business Starter", "source": "fixture"},
+    "vercel inc pro": {"list_price_monthly": 20.0, "plan": "Pro", "source": "fixture"},
+    "nyt digital weekly": {"list_price_monthly": 18.21, "plan": "Digital weekly", "source": "fixture"}
+  }
+}
